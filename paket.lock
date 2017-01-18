@@ -1,0 +1,22 @@
+FRAMEWORK: NET35, NET40, NET45, NET452, NET46, NET462
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Deedle (1.2.5)
+    DocumentFormat.OpenXml (2.5)
+    DynamicInterop (0.7.4)
+    FAKE (4.46.1)
+    FSharp.Core (4.0.0.1)
+    FSharp.Data (2.3.2)
+    NetOffice.Core.Net45 (1.7.3)
+    NetOffice.Excel.Net45 (1.7.3)
+      NetOffice.Core.Net45 (>= 1.7.3)
+    Newtonsoft.Json (9.0.1)
+    NeXL (1.4.8)
+    R.NET.Community (1.6.5)
+      DynamicInterop (0.7.4)
+    R.NET.Community.FSharp (1.6.5)
+      R.NET.Community (>= 1.6.5)
+    RProvider (1.1.20)
+      DynamicInterop (0.7.4)
+      R.NET.Community (1.6.5)
+      R.NET.Community.FSharp (1.6.5)
