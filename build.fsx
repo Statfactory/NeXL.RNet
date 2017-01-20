@@ -63,8 +63,17 @@ Target "Embed" (fun _ ->
         let asmBytes = File.ReadAllBytes(custAssemblyPath)
         let ref1AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\FSharp.Data.dll"))
         let ref2AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\Newtonsoft.Json.dll"))
+
+        let ref3AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\RDotNet.dll"))
+        let ref4AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\RDotNet.FSharp.dll"))
+        let ref5AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\RDotNet.NativeLibrary.dll"))
+        let ref6AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\RProvider.dll"))
+        let ref7AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\RProvider.Runtime.dll"))
+        let ref8AsmBytes = File.ReadAllBytes(Path.Combine(projDir, @"bin\release\DynamicInterop.dll"))
+
+
         WorkbookPackager.EmbedRuntime(xlsmPath, path32BitXll, path64BitXll, vcrtx86, vcrtx64) 
-        WorkbookPackager.EmbedCustomizationAssemblies(xlsmPath, [|asmBytes;ref1AsmBytes;ref2AsmBytes|])
+        WorkbookPackager.EmbedCustomizationAssemblies(xlsmPath, [|asmBytes; ref1AsmBytes; ref2AsmBytes; ref3AsmBytes; ref4AsmBytes; ref5AsmBytes; ref6AsmBytes; ref7AsmBytes; ref8AsmBytes|])
         WorkbookPackager.EmbedPackages(xlsmPath, nugetPackages)
         WorkbookPackager.EmbedVersion(xlsmPath)
         WorkbookPackager.EmbedProdID(xlsmPath, "10A3AF2E-482E-4FF3-97C8-2D9105C9C31A")

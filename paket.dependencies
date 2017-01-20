@@ -10,3 +10,4 @@ nuget DocumentFormat.OpenXml
 nuget Newtonsoft.Json
 nuget Deedle
 nuget RProvider
+nuget Deedle.RPlugin

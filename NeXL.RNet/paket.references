@@ -6,3 +6,4 @@ FSharp.Data
 Newtonsoft.Json
 Deedle
 RProvider
+Deedle.RPlugin
