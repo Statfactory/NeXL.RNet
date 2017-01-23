@@ -19,9 +19,43 @@ open Deedle.RPlugin
 open RProvider.datasets
 open RProvider.Helpers
 
+
+
 [<XlQualifiedName(true)>]
 module RNet =
-    let private frameToDataTable (frame : DataFrame) : DataTable =
+
+    type internal SymbolicExpression with  
+        member internal this.Description =
+            match this with 
+                | CharacterVector(_) -> "CharacterVector"
+                | ComplexVector(_) -> "ComplexVector"
+                | IntegerVector(_) -> "IntegerVector"
+                | LogicalVector(_) -> "LogicalVector"
+                | NumericVector(_) -> "NumericVector"
+                | RawVector(_) -> "RawVector"
+                | UntypedVector(_) -> "UntypedVector"
+                | BuiltinFunction(_) -> "BuiltinFunction"
+                | Closure(_) -> "Closure"
+                | SpecialFunction(_) -> "SpecialFunction"
+                | Function(_) -> "Function"
+                | Environment(_) -> "Environment"
+                | Expression(_) -> "Expression"
+                | Language(_) -> "Language"
+                | List(_) -> "List"
+                | Pairlist(_) -> "Pairlist"
+                | Null(_) -> "Null"
+                | Symbol(_) -> "Symbol"
+                | Factor(_) -> "Factor"
+                | CharacterMatrix(_) -> "CharacterMatrix"
+                | ComplexMatrix(_) -> "ComplexMatrix"
+                | IntegerMatrix(_) -> "IntegerMatrix"
+                | LogicalMatrix(_) -> "LogicalMatrix"
+                | NumericMatrix(_) -> "NumericMatrix"
+                | RawMatrix(_) -> "RawMatrix"
+                | DataFrame(_) -> "DataFrame"
+                | _ -> "Unknown type"
+
+    let internal frameToDataTable (frame : DataFrame) : DataTable =
         let dbTable = new DataTable()
         let rowNames = frame.RowNames
         let rowNamesInt = rowNames |> Array.map (Int32.TryParse >> fst) |> Array.reduce (&&)
@@ -70,6 +104,52 @@ module RNet =
                                                 | _ -> raise (new InvalidOperationException())     
                                         )
         dbTable
+
+    let internal matrixToXlTable (conv : 'T -> XlValue) (data : 'T[,]) (rowNames : string[]) (colNames : string[]) =
+        if rowNames <> null && rowNames.Length = data.GetLength(0) then
+            if colNames <> null && colNames.Length = data.GetLength(1) then
+                let xlCols = 
+                    [|0..colNames.Length|] |> Array.map (fun i -> if i = 0 then {Name = ""; IsDateTime = false} else {Name = colNames.[i - 1]; IsDateTime = false})
+                let xlData = 
+                    Array2D.init (rowNames.Length) (colNames.Length + 1) (fun i j -> 
+                                                                                if j = 0 then
+                                                                                    rowNames.[i] |> XlString
+                                                                                else
+                                                                                    data.[i, j - 1] |> conv
+                                                                            )
+                new XlTable(xlCols, xlData, "", "", false, false, true)
+            else
+                let xlData = 
+                    Array2D.init (rowNames.Length) (data.GetLength(1) + 1) (fun i j -> 
+                                                                                if j = 0 then
+                                                                                    rowNames.[i] |> XlString
+                                                                                else
+                                                                                    data.[i, j - 1] |> conv
+                                                                            )
+                new XlTable([||], xlData, "", "", false, false, false)
+        else
+            if colNames <> null && colNames.Length = data.GetLength(1) then
+                let xlCols = colNames |> Array.map (fun name -> {Name = name; IsDateTime = false})
+                let xlData = data |> Array2D.map conv
+                new XlTable(xlCols, xlData, "", "", false, false, true)
+            else
+                let xlData = data |> Array2D.map conv
+                new XlTable([||], xlData, "", "", false, false, false)
+
+    let internal vectorToXlTable (conv : 'T -> XlValue) (data : 'T[]) (names : string[]) =
+        let xlData = 
+            if names <> null && names.Length = data.Length then
+                Array2D.init (data.Length) 2 (fun i j -> 
+                                                if j = 0 then
+                                                    names.[i] |> XlString
+                                                else
+                                                    data.[i] |> conv
+                                            )
+            else
+                Array2D.init (data.Length) 1 (fun i j -> 
+                                                    data.[i] |> conv
+                                            )
+        new XlTable([||], xlData, "", "", false, false, false)
         
     let getErrors newOnTop =
         UdfErrorHandler.OnError |> Event.scan (fun s e -> e :: s) []
@@ -78,15 +158,104 @@ module RNet =
                                                   XlTable.Create(errs, "", "", false, false, true)
                                              )
 
-    let readCsv(file : string, separator : string, headers : bool, rowNames : bool) =
+    let readTable(file : string, separator : string, headers : bool, rowNames : bool) =
         let prms = namedParams ["file", box file; "sep", box separator; "header", box headers; "row.names", box 1]
         let frame = R.read_table(prms)
         match frame with 
             | DataFrame(df) -> df
             | _ -> raise (new InvalidOperationException())
 
-    let asXlTable(dataFrame : DataFrame) =
-        let dbTable = frameToDataTable dataFrame
-        new XlTable(dbTable, "", "", false, false, true)
+    let lm(formula : string, dataFrame : DataFrame) =
+        R.lm(formula = formula, data = dataFrame)
+
+    let summary(symbolicExpr : SymbolicExpression) =
+        R.summary(symbolicExpr)
+
+    let listMember(symbolicExpr : SymbolicExpression, listMember : string) =
+        if symbolicExpr.IsList() then
+            symbolicExpr.AsList().[listMember]
+        else
+            raise (new ArgumentException("Symbolic expr is not a list"))
+
+    let rec asXlTable(symbolicExpr : SymbolicExpression, listMember : string option) =
+        let listMember = defaultArg listMember String.Empty
+        match symbolicExpr with 
+            | DataFrame(dataFrame) ->
+                if listMember <> String.Empty then
+                    asXlTable(dataFrame.AsList().[listMember], None)
+                else
+                    let dbTable = frameToDataTable dataFrame
+                    new XlTable(dbTable, "", "", false, false, true)
+
+            | List(lst) -> 
+                if listMember <> String.Empty then
+                    asXlTable(lst.[listMember], None)
+                else
+                    let names = lst.Names
+                    let desc = names |> Array.map (fun n -> lst.[n].Description)
+                    let xlCols : XlColumn[] = [|{Name = "ListMember"; IsDateTime = false}
+                                                {Name = "Type"; IsDateTime = false}
+                                              |]
+                    let xlData = Array2D.init names.Length 2 (fun i j -> if j = 0 then names.[i] else desc.[i]) |> Array2D.map XlString
+                    new XlTable(xlCols, xlData, "", "", false, false, true)
+
+            | NumericMatrix(v) ->
+                let rowNames = v.RowNames
+                let colNames = v.ColumnNames
+                let data = v.ToArray()
+                matrixToXlTable XlNumeric data rowNames colNames
+
+            | IntegerMatrix(v) ->
+                let rowNames = v.RowNames
+                let colNames = v.ColumnNames
+                let data = v.ToArray()
+                matrixToXlTable (fun i -> if i = Int32.MinValue then XlNumeric(Double.NaN) else XlNumeric(float(i))) data rowNames colNames
+
+            | CharacterMatrix(v) ->
+                let rowNames = v.RowNames
+                let colNames = v.ColumnNames
+                let data = v.ToArray()
+                matrixToXlTable XlString data rowNames colNames
+
+            | LogicalMatrix(v) ->
+                let rowNames = v.RowNames
+                let colNames = v.ColumnNames
+                let data = v.ToArray()
+                matrixToXlTable XlBool data rowNames colNames
+
+            | NumericVector(v) -> 
+                let names = v.Names
+                let data = v.ToArray()
+                vectorToXlTable XlNumeric data names
+
+            | IntegerVector(v) -> 
+                let names = v.Names
+                let data = v.ToArray()
+                vectorToXlTable (fun i -> if i = Int32.MinValue then XlNumeric(Double.NaN) else XlNumeric(float(i))) data names
+
+            | CharacterVector(v) -> 
+                let names = v.Names
+                let data = v.ToArray()
+                vectorToXlTable XlString data names
+
+            | LogicalVector(v) -> 
+                let names = v.Names
+                let data = v.ToArray()
+                vectorToXlTable XlBool data names
+
+            | Null -> new XlTable("Null" |> XlString)
+
+            | RawVector(_) -> new XlTable("Raw vector" |> XlString)
+
+            | RawMatrix(_) -> new XlTable("Raw matrix" |> XlString)
+
+            | _ -> new XlTable("No converter to XlTable found" |> XlString)
+
+
+                
+
+
+
+
 
 

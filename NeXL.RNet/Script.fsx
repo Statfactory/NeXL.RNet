@@ -39,7 +39,7 @@ open RProvider.datasets
 open RProvider.Helpers
 
 do fsi.AddPrinter(fun (printer:Deedle.Internal.IFsiFormattable) -> "\n" + (printer.Format()))
-let csvUrl = "http://vincentarelbundock.github.io/Rdatasets/csv/datasets/airquality.csv"
+let csvUrl = "http://vincentarelbundock.github.io/Rdatasets/csv/datasets/mtcars.csv"
 //let frame = Frame.ReadCsv(Http.RequestStream(csvUrl).ResponseStream)
 
 let prms = namedParams ["file", box csvUrl; "sep", box ","; "header", box true; "row.names", box 1]
@@ -50,13 +50,31 @@ let xx =
         | DataFrame(df) -> df
         | _ -> raise (new NotImplementedException())
 
-let v = xx.AsList().[xx.ColumnNames.[0]]
-let res =
-    match v with   
-        | IntegerVector(x) -> x.GetValue<int[]>()
-        | _ -> raise (new NotImplementedException())
+let se = xx.AsList().["mpg"]
+
+match se with
+    | NumericVector(v) -> v.Names
+    | _ -> [||]
 
 
+let model = R.lm(formula = "mpg ~ am+wt+hp+disp+cyl", data = xx)
+let s = R.summary_lm(model)
+
+let nms = R.names(s)
+
+let res = nms.AsCharacter().GetValue<string[]>()
+
+
+let coeff = s.AsList().["coefficients"]
+
+coeff.Type
+let mat = coeff.AsNumericMatrix().ToArray()
+
+let f = model.AsList().["fitted.values"]
+
+model.IsList()
+
+let ss = coeff.ToString()
 
 
 
