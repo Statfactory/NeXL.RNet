@@ -55,6 +55,44 @@ module RNet =
                 | DataFrame(_) -> "DataFrame"
                 | _ -> "Unknown type"
 
+    let internal toColMajorArray (v : 'T[,]) =
+        let nrows = v.GetLength(0)
+        Array.init v.Length (fun i -> v.[i % nrows, i / nrows])
+
+    let internal allBool (v : XlValue[]) =
+        v |> Array.map (fun x -> match x with | XlBool(_) -> true | _ -> false) |> Array.reduce (&&)
+
+    let internal allNumericOrMiss (v : XlValue[]) =
+        v |> Array.map (fun x -> match x with | XlNumeric(_) | XlNil | XlMissing -> true | _ -> false) |> Array.reduce (&&)
+
+    let internal allCharacterOrMiss (v : XlValue[]) =
+        v |> Array.map (fun x -> match x with | XlString(_) | XlNil | XlMissing -> true | _ -> false) |> Array.reduce (&&)
+
+    [<XlConverter>]
+    let convToSymExpr (v : XlData) =
+        match v with   
+            | XlArray2D(arr) ->
+                let isVector = arr.GetLength(0) = 1 || arr.GetLength(1) = 1
+                let v = arr |> toColMajorArray
+                if v |> allBool then
+                    let v = v |> Array.map (fun x -> match x with | XlBool(b) -> b | _ -> raise (new InvalidOperationException()))
+                    if isVector then
+                        R.c(v)
+                    else
+                        R.matrix(data = v, nrow = arr.GetLength(0), ncol = arr.GetLength(1), byrow = false)
+                elif v |> allCharacterOrMiss then
+                    let v = v |> Array.map (fun x -> match x with | XlString(s) -> s | _ -> String.Empty)
+                    if isVector then
+                        R.c(v)
+                    else
+                        R.matrix(data = v, nrow = arr.GetLength(0), ncol = arr.GetLength(1), byrow = false)
+                else
+                    let v = v |> Array.map (fun x -> match x with | XlNumeric(x) -> x | _ -> Double.NaN)
+                    if isVector then
+                        R.c(v)
+                    else
+                        R.matrix(data = v, nrow = arr.GetLength(0), ncol = arr.GetLength(1), byrow = false)
+
     let internal frameToDataTable (frame : DataFrame) : DataTable =
         let dbTable = new DataTable()
         let rowNames = frame.RowNames
@@ -157,6 +195,31 @@ module RNet =
                                                   let errs = if newOnTop then errs |> List.toArray else errs |> List.rev |> List.toArray
                                                   XlTable.Create(errs, "", "", false, false, true)
                                              )
+
+    let eval (text : string) =
+        R.eval(R.parse(text = text)).AsFunction()
+
+    let invoke (f : Function, arg0 : SymbolicExpression option, arg1 : SymbolicExpression option, arg2 : SymbolicExpression option,
+                arg3 : SymbolicExpression option, arg4 : SymbolicExpression option, arg5 : SymbolicExpression option,
+                arg6 : SymbolicExpression option, arg7 : SymbolicExpression option
+               ) =
+        let args = [|arg0; arg1; arg2; arg3; arg4; arg5; arg6; arg7|] |> Array.choose id   
+        f.Invoke(args)
+
+    let invokeNamed (f: Function, name0 : string option, arg0 : SymbolicExpression option,
+                     name1 : string option, arg1 : SymbolicExpression option,
+                     name2 : string option, arg2 : SymbolicExpression option,
+                     name3 : string option, arg3 : SymbolicExpression option,
+                     name4 : string option, arg4 : SymbolicExpression option,
+                     name5 : string option, arg5 : SymbolicExpression option,
+                     name6 : string option, arg6 : SymbolicExpression option,
+                     name7 : string option, arg7 : SymbolicExpression option
+                    ) =
+        let namedArgs = [|name0, arg0; name1, arg1; name2, arg2;  name3, arg3; name4, arg4; name5, arg5;  name6, arg6; name7, arg7|]
+                            |> Array.map (fun (x, y) -> match x, y with | Some(x), Some(y) -> Some(x, y) | _ -> None)
+                            |> Array.choose id
+        f.InvokeNamed(namedArgs)
+
 
     let readTable(file : string, separator : string, headers : bool, rowNames : bool) =
         let prms = namedParams ["file", box file; "sep", box separator; "header", box headers; "row.names", box 1]

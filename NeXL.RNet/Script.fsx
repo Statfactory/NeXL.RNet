@@ -4,8 +4,7 @@
 #r "../packages/NeXL/lib/net45/NeXL.ManagedXll.dll"
 #r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
 #r "../packages/Newtonsoft.Json/lib/net45/Newtonsoft.Json.dll"
-#r "../packages/Deedle/lib/net40/Deedle.dll"
-#r "../packages/Deedle.RPlugin/lib/net40/Deedle.RProvider.Plugin.dll"
+#r "../packages/DynamicInterop/lib/net40/DynamicInterop.dll"
 
 #I "../packages/RProvider/lib/net40"
 #I "../packages/R.NET.Community/lib/net40"
@@ -27,18 +26,15 @@ open FSharp.Data.JsonExtensions
 open FSharp.Data.HtmlExtensions
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
-open Deedle
 open NeXL.RNet
 open RDotNet
 open RProvider
 open RProvider.``base``
 open RProvider.stats
 open RProvider.utils
-open Deedle.RPlugin
 open RProvider.datasets
 open RProvider.Helpers
 
-do fsi.AddPrinter(fun (printer:Deedle.Internal.IFsiFormattable) -> "\n" + (printer.Format()))
 let csvUrl = "http://vincentarelbundock.github.io/Rdatasets/csv/datasets/mtcars.csv"
 //let frame = Frame.ReadCsv(Http.RequestStream(csvUrl).ResponseStream)
 
@@ -50,6 +46,11 @@ let xx =
         | DataFrame(df) -> df
         | _ -> raise (new NotImplementedException())
 
+let ff = R.eval(R.parse(text="lm")).AsFunction()
+
+
+let mmm = ff.InvokeNamed(("formula", R.c("mpg ~ am+wt+hp+disp+cyl")), ("data", xx:>SymbolicExpression))
+
 let se = xx.AsList().["mpg"]
 
 match se with
@@ -58,7 +59,7 @@ match se with
 
 
 let model = R.lm(formula = "mpg ~ am+wt+hp+disp+cyl", data = xx)
-let s = R.summary_lm(model)
+let s = R.summary_lm(mmm)
 
 let nms = R.names(s)
 
