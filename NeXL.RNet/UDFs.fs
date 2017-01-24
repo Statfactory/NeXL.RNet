@@ -5,17 +5,12 @@ open System
 open System.IO
 open System.Runtime.InteropServices
 open System.Data
-open FSharp.Data
-open Newtonsoft.Json
-open Newtonsoft.Json.Linq
-open Deedle
 open RProvider
 open Microsoft.VisualBasic
 open RDotNet
 open RProvider.``base``
 open RProvider.stats
 open RProvider.utils
-open Deedle.RPlugin
 open RProvider.datasets
 open RProvider.Helpers
 

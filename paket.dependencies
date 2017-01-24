@@ -3,11 +3,7 @@ source https://api.nuget.org/v3/index.json
 nuget FAKE 4.46.1
 nuget FSharp.Core
 nuget NeXL
-nuget FSharp.Data
 nuget NetOffice.Core.Net45
 nuget NetOffice.Excel.Net45
 nuget DocumentFormat.OpenXml
-nuget Newtonsoft.Json
-nuget Deedle
 nuget RProvider
-nuget Deedle.RPlugin

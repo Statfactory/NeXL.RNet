@@ -2,8 +2,4 @@ NeXL
 DocumentFormat.OpenXml
 NetOffice.Core.Net45
 NetOffice.Excel.Net45
-FSharp.Data
-Newtonsoft.Json
-Deedle
 RProvider
-Deedle.RPlugin
