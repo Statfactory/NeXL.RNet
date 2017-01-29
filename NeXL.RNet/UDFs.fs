@@ -14,8 +14,6 @@ open RProvider.utils
 open RProvider.datasets
 open RProvider.Helpers
 
-
-
 [<XlQualifiedName(true)>]
 module RNet =
 
@@ -81,12 +79,14 @@ module RNet =
                         R.c(v)
                     else
                         R.matrix(data = v, nrow = arr.GetLength(0), ncol = arr.GetLength(1), byrow = false)
-                else
+                elif v |> allNumericOrMiss then
                     let v = v |> Array.map (fun x -> match x with | XlNumeric(x) -> x | _ -> Double.NaN)
                     if isVector then
                         R.c(v)
                     else
                         R.matrix(data = v, nrow = arr.GetLength(0), ncol = arr.GetLength(1), byrow = false)
+                else
+                    raise (new ArgumentException("Cannot convert to SymbolicExpr"))
 
     let internal frameToDataTable (frame : DataFrame) : DataTable =
         let dbTable = new DataTable()
@@ -216,8 +216,8 @@ module RNet =
         f.InvokeNamed(namedArgs)
 
 
-    let readTable(file : string, separator : string, headers : bool, rowNames : bool) =
-        let prms = namedParams ["file", box file; "sep", box separator; "header", box headers; "row.names", box 1]
+    let readTable(file : string, separator : string, headers : bool, rowNamesCol : int) =
+        let prms = namedParams ["file", box file; "sep", box separator; "header", box headers; "row.names", box rowNamesCol]
         let frame = R.read_table(prms)
         match frame with 
             | DataFrame(df) -> df
@@ -234,6 +234,7 @@ module RNet =
             symbolicExpr.AsList().[listMember]
         else
             raise (new ArgumentException("Symbolic expr is not a list"))
+
 
     let rec asXlTable(symbolicExpr : SymbolicExpression, listMember : string option) =
         let listMember = defaultArg listMember String.Empty
@@ -253,7 +254,7 @@ module RNet =
                     let desc = names |> Array.map (fun n -> lst.[n].Description)
                     let xlCols : XlColumn[] = [|{Name = "ListMember"; IsDateTime = false}
                                                 {Name = "Type"; IsDateTime = false}
-                                              |]
+                                            |]
                     let xlData = Array2D.init names.Length 2 (fun i j -> if j = 0 then names.[i] else desc.[i]) |> Array2D.map XlString
                     new XlTable(xlCols, xlData, "", "", false, false, true)
 
@@ -308,6 +309,7 @@ module RNet =
             | RawMatrix(_) -> new XlTable("Raw matrix" |> XlString)
 
             | _ -> new XlTable("No converter to XlTable found" |> XlString)
+
 
 
                 
