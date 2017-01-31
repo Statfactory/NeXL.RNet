@@ -216,12 +216,15 @@ module RNet =
         f.InvokeNamed(namedArgs)
 
 
-    let readTable(file : string, separator : string, headers : bool, rowNamesCol : int) =
+    let readTable(file : string, separator : string option, headers : bool option, rowNamesCol : int option) =
+        let separator = defaultArg separator ","
+        let headers = defaultArg headers true
+        let rowNamesCol =  defaultArg rowNamesCol 1
         let prms = namedParams ["file", box file; "sep", box separator; "header", box headers; "row.names", box rowNamesCol]
         let frame = R.read_table(prms)
         match frame with 
             | DataFrame(df) -> df
-            | _ -> raise (new InvalidOperationException())
+            | _ -> raise (new InvalidOperationException("Not a data frame"))
 
     let lm(formula : string, dataFrame : DataFrame) =
         R.lm(formula = formula, data = dataFrame)
